@@ -23,8 +23,6 @@ if uploaded_file:
     # Convert numeric columns
     df["Delivery_person_Age"] = pd.to_numeric(df["Delivery_person_Age"], errors="coerce")
     df["Delivery_person_Ratings"] = pd.to_numeric(df["Delivery_person_Ratings"], errors="coerce")
-
-    # Remove "(min)" from Time_taken(min) and convert to integer
     df["Time_taken(min)"] = pd.to_numeric(df["Time_taken(min)"].str.extract("(\\d+)")[0], errors="coerce")
 
     # Fix Weatherconditions (remove "conditions ")
@@ -80,15 +78,19 @@ if uploaded_file:
         df_clustering = df_clustering.apply(pd.to_numeric, errors='coerce')
         df_clustering.dropna(inplace=True)
 
-        if df_clustering.isnull().sum().sum() == 0:
+        if df_clustering.isnull().sum().sum() == 0 and not df_clustering.empty:
             scaler = StandardScaler()
             X_scaled = scaler.fit_transform(df_clustering)
-            kmeans = KMeans(n_clusters=3, random_state=42)
-            df["Cluster"] = kmeans.fit_predict(X_scaled).astype(int)  # Convert cluster labels to int
-
-            fig, ax = plt.subplots()
-            sns.scatterplot(x="Delivery_person_Age", y="Time_taken(min)", hue=df["Cluster"].astype(str), palette="viridis", ax=ax)
-            st.pyplot(fig)
-            st.success("✅ Clustering Analysis Completed!")
+            kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
+            df.loc[df_clustering.index, "Cluster"] = kmeans.fit_predict(X_scaled).astype(int)  # Assign cluster labels correctly
+            
+            # Ensure Clustering was successful before plotting
+            if "Cluster" in df.columns:
+                fig, ax = plt.subplots()
+                sns.scatterplot(x="Delivery_person_Age", y="Time_taken(min)", hue=df.loc[df_clustering.index, "Cluster"].astype(str), palette="viridis", ax=ax)
+                st.pyplot(fig)
+                st.success("✅ Clustering Analysis Completed!")
+            else:
+                st.error("❌ Clustering failed. No valid clusters assigned.")
         else:
             st.error("❌ Clustering failed due to missing or invalid values. Please check data preprocessing.")
